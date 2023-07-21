@@ -1,0 +1,5 @@
+pip install langchain
+pip install openai
+python -m pip install pymongo==3.11
+pip install streamlit
+pip install certifi
