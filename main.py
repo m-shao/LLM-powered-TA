@@ -6,8 +6,12 @@ from constants import characters, open_ai_key, uri, database_name
 def user_page(room_code, user_name, openai_api_key="") :
     st.title("💬 Chatbot")
     if "messages" not in st.session_state:
-        st.session_state["messages"] = fetch_user_messages(database_name, room_code, user_name)[0]["messages"]
-
+        try: 
+            st.session_state["messages"] = fetch_user_messages(database_name, room_code, user_name)[0]["messages"]
+        except(Exception):
+            st.session_state["messages"] = [{"role": "assistant", "content": "Hello, how can I help you today?"}]
+    store_message_history(database_name, room_code, st.session_state["messages"], user_name)
+        
     for msg in st.session_state.messages:
         st.chat_message(msg["role"]).write(msg["content"])
 
@@ -31,11 +35,13 @@ def user_view_page(user_name, messages) :
         st.chat_message(msg["role"]).write(msg["content"])
 
 import streamlit as st
+from streamlit_autorefresh import st_autorefresh
 import pymongo
 import certifi
 import random
 
 def admin_page(room_code, users):
+    st_autorefresh(interval=5000, limit=100, key="userFinder")
     # Sample data for 5 users
 
     button_states = []
@@ -45,31 +51,33 @@ def admin_page(room_code, users):
     # Create three columns using st.beta_columns()
     col1, col2, col3 = st.columns(3)
 
-    # Column 1: Names
-    with col1:
-        st.subheader("Names")
-        for user in users:
-            st.write(user["user"])
-            st.write("######")
+    print('HELLOHELLOHELLOODFJLSDFJLKSDJFLKSDJF', users)
+    if len(users) > 0:
+        # Column 1: Names
+        with col1:
+            st.subheader("Names")
+            for user in users:
+                st.write(user["user"])
+                st.write("######")
 
-    # Column 2: View Chat Buttons
-    with col2:
-        st.subheader("View Chat")
-        button_states = []
-        for user in users:
-            button_states.append(st.button("View Chat", key=user["user"] + "view"))
+        # Column 2: View Chat Buttons
+        with col2:
+            st.subheader("View Chat")
+            button_states = []
+            for user in users:
+                button_states.append(st.button("View Chat", key=user["user"] + "view"))
 
-    # Column 3: Remove User Buttons
-    with col3:
-        st.subheader("Remove User")
-        for user in users:
-            if st.button("Remove", key=user["user"] + "remove"):
-                remove_user(database_name, room_code, user["user"])
-                st.experimental_rerun()
+        # Column 3: Remove User Buttons
+        with col3:
+            st.subheader("Remove User")
+            for user in users:
+                if st.button("Remove", key=user["user"] + "remove"):
+                    remove_user(database_name, room_code, user["user"])
+                    st.experimental_rerun()
 
-    for ind, state in enumerate(button_states):
-        if state:
-            user_view_page(users[ind]["user"], users[ind]["messages"])
+        for ind, state in enumerate(button_states):
+            if state:
+                user_view_page(users[ind]["user"], users[ind]["messages"])
 
 ca = certifi.where()
 # Connect to MongoDB
@@ -96,10 +104,12 @@ def does_collection_exist(database_name, collection_name):
     return collection_exists
 
 def generate_room_key(characters):
+    client = pymongo.MongoClient(uri, tlsCAFile=ca)
+    
     collection_exists = True
     while collection_exists: 
         collection_code = random_code(characters)
-        collection_exists = does_collection_exist(client, database_name, collection_code)
+        collection_exists = does_collection_exist(database_name, collection_code)
     return collection_code
 
 def remove_user(database_name, collection_code, user_name):
@@ -169,6 +179,11 @@ def home_page():
     st.title('Welcome to the Home Page')
     # Add content specific to the Home page here
     st.write("Large Language models like chat gpt are being used more and more by students all over the world. The intentions while accessing these amazing resources are not always innocent especially when used for school work. Why not provide our students with a safe, relevant, and non-malicious way to use these very powerful tools within the classroom ")
+    st.write("####")
+    st.write("What is your name?")
+    if 'name' not in st.session_state:
+        st.session_state['name'] = ''
+    st.session_state['name'] = st.text_input("Username", key="username")
 
 def main1(user_name):
     if 'page' not in st.session_state:
@@ -184,7 +199,9 @@ def main1(user_name):
         collection_code = st.text_input("Join Room Code", key="join_room_code")
         
         if st.button('Join Room'):
-            if not collection_code:
+            if st.session_state['name'] == '':
+                st.info("Please enter a valid username to continue.")
+            elif not collection_code:
                 st.info("Please enter a valid room code to continue.")
             else:
                 st.session_state['page'] = 'user'
@@ -196,13 +213,23 @@ def main1(user_name):
     # Use conditional statements to display the content based on the current page
     if st.session_state['page'] == 'user':
         if collection_code:
-            user_page(collection_code, user_name, openai_api_key)
+            user_page(collection_code, st.session_state['name'], openai_api_key)
         else:
             home_page()
     elif st.session_state['page'] == 'admin':
-        collection_code = "FDY3WT"
-        users = fetch_all_documents(database_name, collection_code)
-        admin_page(collection_code, users)
+        if 'key' not in st.session_state:
+            st.session_state['key'] = generate_room_key(characters)
+        client = pymongo.MongoClient(uri, tlsCAFile=ca)
+        # Create or access the specified database
+        db = client[database_name]
+        collection = db[st.session_state['key'] ]
+        collection.insert_one({})
+        query_filter = {"user": {"$exists": True}}
+
+        # Fetch documents from the collection with the "user" property
+        users = list(collection.find(query_filter))
+        client.close()
+        admin_page(st.session_state['key'], users)
     elif st.session_state['page'] == "home":
         home_page()
 
