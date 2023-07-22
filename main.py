@@ -38,6 +38,8 @@ import random
 def admin_page(room_code, users):
     # Sample data for 5 users
 
+    button_states = []
+
     st.header("Room Code: " + room_code)
 
     # Create three columns using st.beta_columns()
@@ -53,10 +55,9 @@ def admin_page(room_code, users):
     # Column 2: View Chat Buttons
     with col2:
         st.subheader("View Chat")
+        button_states = []
         for user in users:
-            if st.button("View Chat", key=user["user"] + "view"):
-                print(user["user"], user["messages"])
-
+            button_states.append(st.button("View Chat", key=user["user"] + "view"))
 
     # Column 3: Remove User Buttons
     with col3:
@@ -66,7 +67,9 @@ def admin_page(room_code, users):
                 # Logic to remove the user from the list or database goes here
                 # In this example, we simply remove the user from the list for demonstration purposes
                 users.remove(user)
-
+    for ind, state in enumerate(button_states):
+        if state:
+            user_view_page(users[ind]["user"], users[ind]["messages"])
 
 ca = certifi.where()
 # Connect to MongoDB
