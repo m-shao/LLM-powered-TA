@@ -3,13 +3,10 @@ import openai
 import streamlit as st
 from constants import characters, open_ai_key, uri, database_name
 
-def user_page(room_code, user_name) :
-    with st.sidebar:
-        openai_api_key = st.text_input("OpenAI API Key", key="chatbot_api_key", type="password")
-
+def user_page(room_code, user_name, openai_api_key="") :
     st.title("💬 Chatbot")
     if "messages" not in st.session_state:
-        st.session_state["messages"] = [{"role": "assistant", "content": "How can I help you?"}]
+        st.session_state["messages"] = fetch_user_messages(database_name, room_code, user_name)[0]["messages"]
 
     for msg in st.session_state.messages:
         st.chat_message(msg["role"]).write(msg["content"])
@@ -131,6 +128,21 @@ def fetch_all_documents(database_name, collection_code):
 
     return documents
 
+def fetch_user_messages(database_name, collection_code, user_name):
+    client = pymongo.MongoClient(uri, tlsCAFile=ca)
+    db = client[database_name]
+    collection = db[collection_code]
+    
+    query_filter = {"user": user_name}
+
+    # Fetch messages from the collection for the specific user
+    messages = list(collection.find(query_filter, {"_id": 0, "messages": 1}))
+
+    # Close the MongoDB connection
+    client.close()
+
+    return messages
+
 def store_message_history(database_name, collection_code, message_history, user_name):
 
     client = pymongo.MongoClient(uri, tlsCAFile=ca)
@@ -150,58 +162,46 @@ def store_message_history(database_name, collection_code, message_history, user_
     client.close()
 
 
-room_role = ""
-
 def home_page():
     st.title('Welcome to the Home Page')
     # Add content specific to the Home page here
-
-def about_page():
-    st.title('About Us')
-    # Add content specific to the About page here
+    st.write("Large Language models like chat gpt are being used more and more by students all over the world. The intentions while accessing these amazing resources are not always innocent especially when used for school work. Why not provide our students with a safe, relevant, and non-malicious way to use these very powerful tools within the classroom ")
 
 def main1(user_name):
-    room_role = "user"
-    st.title('Multi-Page Streamlit App')
+    if 'page' not in st.session_state:
+        st.session_state['page'] = 'home'
+    with st.sidebar:
+        st.title('LLM Powered TA')
+        if st.button('Home'):
+            st.session_state['page'] = 'home'
+            
+        openai_api_key = st.text_input("OpenAI API Key", key="chatbot_api_key", type="password")
+        
+        # Create buttons for switching pages
+        collection_code = st.text_input("Join Room Code", key="join_room_code")
+        
+        if st.button('Join Room'):
+            if not collection_code:
+                st.info("Please enter a valid room code to continue.")
+            else:
+                st.session_state['page'] = 'user'
 
-    # Create buttons for switching pages
-    if st.button('user'):
-        room_role = 'user'
-
-    if st.button('admin'):
-        room_role = 'admin'
+        if st.button('Create Room'):
+            st.session_state['page'] = 'admin'
+    
 
     # Use conditional statements to display the content based on the current page
-    if room_role == 'user':
-        collection_code = "FDY3WT"
-        user_page(collection_code, user_name)
-    elif room_role == 'admin':
+    if st.session_state['page'] == 'user':
+        if collection_code:
+            user_page(collection_code, user_name, openai_api_key)
+        else:
+            home_page()
+    elif st.session_state['page'] == 'admin':
         collection_code = "FDY3WT"
         users = fetch_all_documents(database_name, collection_code)
         admin_page(collection_code, users)
+    elif st.session_state['page'] == "home":
+        home_page()
 
 if __name__ == "__main__":
     main1("minglun")
-    
-    
-    # room = input("would you like to create a room?: ")
-    # if room == "yes":
-    #     collection_code = generate_room_key(characters)
-    #     room_role = "admin"
-    #     # admin_page(collection_code, users)
-    # else:
-    #     room_role = "user"
-    #     collection_code = input("please enter the room code: ")
-        
-    
-    # # Sample dictionary representing user message history
-    # message_history = [
-    #         {"role": "sender", "content": "Hello, how is your mom?"},
-    #         {"role": "receiver", "content": "I'm fine, thank you!"},
-    # ]
-    user_name = "minglun"
-
-    
-    # # Call the function to store the message history in MongoDB
-    # store_message_history(client, database_name, "FDY3WT", message_history, user_name)
-    # print(remove_user(client, database_name, "FDY3WT", user_name))
