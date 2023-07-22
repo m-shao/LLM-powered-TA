@@ -4,10 +4,38 @@ import openai
 import streamlit as st
 from langchain import PromptTemplate, OpenAI, LLMChain
 from langchain.schema import HumanMessage, AIMessage
-from langchain.memory import ConversationBufferWindowMemory
 from constants import characters, open_ai_key, uri, database_name
 
 # functions are for streamlit's ability to run multiple pages
+
+# def chat_pdf():
+#     const embeddings = new OpenAIEmbeddings();
+
+def chatbot(user_input="", openai_api_key="", room_code="", user_name=""):
+    llm = OpenAI(openai_api_key=openai_api_key,temperature=0)
+
+    template = """\
+    You are a teaching assistant for a high school teacher's class. You are helping a student with a lesson. Talk to the student in second person.
+    The student asks you: {question}
+    """
+
+    llm_chain = LLMChain(
+        llm=llm, 
+        prompt=PromptTemplate.from_template(template)
+    )
+    st.chat_message("user").write(user_input)
+
+    user_message = HumanMessage(content=user_input)
+    user_message_dict = {"role": "user", "content": user_message.content}
+    st.session_state.messages.append(user_message_dict)
+
+    ai_message = AIMessage(content=llm_chain(user_input)["text"])
+    # msg should really becalled ai_message
+    msg = { 'role': 'assistant', 'content': ai_message.content }
+    st.chat_message("assistant").write(msg["content"])
+    st.session_state.messages.append(msg)
+
+    store_message_history(database_name, room_code, st.session_state.messages, user_name)
 
 # user page
 def user_page(room_code, user_name, openai_api_key="") : # why is openai api key here?
@@ -26,31 +54,7 @@ def user_page(room_code, user_name, openai_api_key="") : # why is openai api key
         if not openai_api_key:
             st.info("Please add your OpenAI API key to continue.")
             st.stop()
-
-        llm = OpenAI(openai_api_key=openai_api_key,temperature=0)
-
-        template = """\
-        You are a teaching assistant for a high school teacher's class. You are helping a student with a lesson. Talk to the student in second person.
-        The student asks you: {question}
-        """
-
-        llm_chain = LLMChain(
-            llm=llm, 
-            prompt=PromptTemplate.from_template(template)
-        )
-        st.chat_message("user").write(user_input)
-
-        user_message = HumanMessage(content=user_input)
-        user_message_dict = {"role": "user", "content": user_message.content}
-        st.session_state.messages.append(user_message_dict)
-
-        ai_message = AIMessage(content=llm_chain(user_input)["text"])
-        # msg should really becalled ai_message
-        msg = { 'role': 'assistant', 'content': ai_message.content }
-        st.chat_message("assistant").write(msg["content"])
-        st.session_state.messages.append(msg)
-
-        store_message_history(database_name, room_code, st.session_state.messages, user_name)
+        chatbot(user_input=user_input, openai_api_key=openai_api_key, room_code=room_code, user_name=user_name)
         
 def user_view_page(user_name, messages) :
     st.title(user_name)
