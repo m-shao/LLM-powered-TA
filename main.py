@@ -38,7 +38,6 @@ def user_page(room_code, user_name, openai_api_key="") : # why is openai api key
             llm=llm, 
             prompt=PromptTemplate.from_template(template)
         )
-        st.session_state.messages.append({"role": "user", "content": user_input})
         st.chat_message("user").write(user_input)
 
         user_message = HumanMessage(content=user_input)
@@ -49,8 +48,8 @@ def user_page(room_code, user_name, openai_api_key="") : # why is openai api key
         # msg should really becalled ai_message
         msg = { 'role': 'assistant', 'content': ai_message.content }
         st.chat_message("assistant").write(msg["content"])
-
         st.session_state.messages.append(msg)
+
         store_message_history(database_name, room_code, st.session_state.messages, user_name)
         
 def user_view_page(user_name, messages) :
