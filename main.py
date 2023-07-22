@@ -30,7 +30,7 @@ def user_page(room_code, user_name, openai_api_key="") : # why is openai api key
         llm = OpenAI(openai_api_key=openai_api_key,temperature=0)
 
         template = """\
-        You are a teaching assistant for a high school teacher's class. You are helping a student with a lesson. 
+        You are a teaching assistant for a high school teacher's class. You are helping a student with a lesson. Talk to the student in second person.
         The student asks you: {question}
         """
 
@@ -73,6 +73,10 @@ def admin_page(room_code, users):
 
     # Create three columns using st.beta_columns()
     col1, col2, col3 = st.columns(3)
+
+    uploaded_file = st.file_uploader('Choose your .pdf file', type="pdf")
+    if uploaded_file is not None:
+        df = extract_data(uploaded_file)
 
     if len(users) > 0:
         # Column 1: Names
