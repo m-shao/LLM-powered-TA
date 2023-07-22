@@ -70,6 +70,9 @@ def admin_page(room_code, users):
     button_states = []
 
     st.header("Room Code: " + room_code)
+    if st.button("Delete Room", key="delete"):
+        delete_collection(database_name, room_code)
+        return "home"
 
     # Create three columns using st.beta_columns()
     col1, col2, col3 = st.columns(3)
@@ -196,6 +199,17 @@ def store_message_history(database_name, collection_code, message_history, user_
     collection.update_one(filter_query, update_query, upsert=True)
     client.close()
 
+def delete_collection(database_name, collection_code):
+    client = pymongo.MongoClient(uri, tlsCAFile=ca)
+    db = client[database_name]
+    collection = db[collection_code]
+
+    # Delete the collection
+    collection.drop()
+
+    # Close the MongoDB connection
+    client.close()
+
 company_name = "LLM-TA"
 def home_page():
     st.title('Welcome to ' + company_name + '!')
@@ -224,7 +238,7 @@ def main1(user_name):
         if st.button('Join Room'):
             if st.session_state['name'] == '':
                 st.info("Please enter a valid username to continue.")
-            elif not collection_code:
+            elif not collection_code or not does_collection_exist(database_name, collection_code):
                 st.info("Please enter a valid room code to continue.")
             else:
                 st.session_state['page'] = 'user'
@@ -252,7 +266,7 @@ def main1(user_name):
         # Fetch documents from the collection with the "user" property
         users = list(collection.find(query_filter))
         client.close()
-        admin_page(st.session_state['key'], users)
+        st.session_state['page'] = admin_page(st.session_state['key'], users)
     elif st.session_state['page'] == "home":
         home_page()
 
