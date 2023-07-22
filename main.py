@@ -18,8 +18,8 @@ def user_page(room_code, user_name, openai_api_key="") : # why is openai api key
             st.session_state["messages"] = [{"role": "assistant", "content": "Hello, how can I help you today?"}]
     store_message_history(database_name, room_code, st.session_state["messages"], user_name)
         
-    # for msg in st.session_state.messages:
-        # st.chat_message(msg["role"]).write(msg["content"])
+    for msg in st.session_state.messages:
+        st.chat_message(msg["role"]).write(msg["content"])
 
     if user_input := st.chat_input():
         if not openai_api_key:
@@ -42,7 +42,7 @@ def user_page(room_code, user_name, openai_api_key="") : # why is openai api key
 
         response = llm_chain(user_input)
         msg = response['text']
-        st.chat_message("assistant").write(msg)
+        st.chat_message("assistant").write(response)
         st.session_state.messages.append(msg)
         store_message_history(database_name, room_code, st.session_state.messages, user_name)
         
