@@ -1,17 +1,10 @@
 # imports
 import os
-# import openai
+import openai
 import streamlit as st
-from langchain.chains import LLMChain
-from langchain.chat_models import ChatOpenAI
-from langchain.prompts import PromptTemplate
+from langchain import PromptTemplate, OpenAI, LLMChain
 from langchain.memory import ConversationBufferWindowMemory
 from constants import characters, open_ai_key, uri, database_name
-from langchain.schema import (
-    AIMessage,
-    HumanMessage,
-    SystemMessage
-)
 
 # functions are for streamlit's ability to run multiple pages
 
@@ -28,42 +21,32 @@ def user_page(room_code, user_name, openai_api_key="") : # why is openai api key
     for msg in st.session_state.messages:
         st.chat_message(msg["role"]).write(msg["content"])
 
-    if prompt := st.chat_input():
+    if user_input := st.chat_input():
         if not openai_api_key:
             st.info("Please add your OpenAI API key to continue.")
             st.stop()
 
         # default openai stuff that I will change
-        st.session_state.messages.append({"role": "user", "content": prompt})
+        st.session_state.messages.append({"role": "user", "content": user_input})
+        st.chat_message("user").write(user_input)
 
-        # mongodb sttings
-        # user writes a prompt
-        # get a response from chat completion openai
-        # take response 
-        # add it to the database
-        st.chat_message("user").write(prompt)
-        response = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=st.session_state.messages)
-        msg = response.choices[0].message
-        st.session_state.messages.append(msg)
-        store_message_history(database_name, room_code, st.session_state.messages, user_name)
-        st.chat_message("assistant").write(msg.content)
+        llm = OpenAI(openai_api_key=openai_api_key,temperature=0)
 
-        # to make a chat bot: you import
-        # can change gpt model withS
-
-        chatgpt_chain = LLMChain(
-            llm=ChatOpenAI(model_name = "gpt-3.5-turbo", temperature=0),
-            prompt=prompt,
-            verbose=True,
-            memory=ConversationBufferWindowMemory(k=2)
+        template = """\
+        You are a teaching assistant for a high school teacher's class. You are helping a student with a lesson. 
+        The student asks you: {question}
+        """
+        llm_chain = LLMChain(
+            llm=llm, 
+            prompt=PromptTemplate.from_template(template)
         )
 
-        chat = ChatOpenAI(openai_api_key=openai_api_key,temperature=0.0)
+        response = llm_chain(user_input)
 
-        output = chatgpt_chain.predict(
-            human_input=" Your first interaction with the chatBot"
-        )
-        print(output)
+        # msg = response.choices[0].message
+        # store_message_history(database_name, room_code, st.session_state.messages, user_name)
+        st.chat_message("assistant").write(response)
+        print(type(response))
         
 # 
 def user_view_page(user_name, messages) :
