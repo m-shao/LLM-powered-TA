@@ -74,7 +74,6 @@ def admin_page(room_code, users):
     # Create three columns using st.beta_columns()
     col1, col2, col3 = st.columns(3)
 
-    print('HELLOHELLOHELLOODFJLSDFJLKSDJFLKSDJF', users)
     if len(users) > 0:
         # Column 1: Names
         with col1:
