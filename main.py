@@ -64,9 +64,9 @@ def admin_page(room_code, users):
         st.subheader("Remove User")
         for user in users:
             if st.button("Remove", key=user["user"] + "remove"):
-                # Logic to remove the user from the list or database goes here
-                # In this example, we simply remove the user from the list for demonstration purposes
-                users.remove(user)
+                remove_user(database_name, room_code, user["user"])
+                st.experimental_rerun()
+
     for ind, state in enumerate(button_states):
         if state:
             user_view_page(users[ind]["user"], users[ind]["messages"])
