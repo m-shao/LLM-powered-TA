@@ -1,8 +1,18 @@
 # imports
 import os
-import openai
 import streamlit as st
+from streamlit_autorefresh import st_autorefresh
+import certifi
+import random
+# for pdfs
+import pymongo
+import gridfs
+from bson import ObjectIds
+# for chatbot
+import openai
 from langchain import PromptTemplate, OpenAI, LLMChain
+from langchain.embeddings import OpenAIEmbeddings
+from pdfgpt import *
 from langchain.schema import HumanMessage, AIMessage
 from constants import characters, open_ai_key, uri, database_name
 
@@ -10,6 +20,19 @@ from constants import characters, open_ai_key, uri, database_name
 
 # def chat_pdf():
 #     const embeddings = new OpenAIEmbeddings();
+
+def semantic_search(document, query):
+    d = PDFBot(openai_key=openai_api_key)
+
+    print('Example')
+    extracted_text, num_pages = d.generateText(file_path='.pdf')
+    df = d.generateEmbeddings(extracted_text)
+
+    print('USER: What is EPANET?')
+    prompt = d.generatePrompt(df, num_pages, 'What is EPANET?')
+    response = d.sendPrompt(prompt, model="gpt-3.5-turbo")
+    print('AI')
+    print(response, '\n')
 
 def chatbot(user_input="", openai_api_key="", room_code="", user_name=""):
     llm = OpenAI(openai_api_key=openai_api_key,temperature=0)
@@ -29,6 +52,8 @@ def chatbot(user_input="", openai_api_key="", room_code="", user_name=""):
     user_message_dict = {"role": "user", "content": user_message.content}
     st.session_state.messages.append(user_message_dict)
 
+    semantic_search("What is some relevant information in this text that is relevant to: " + user_input)
+
     ai_message = AIMessage(content=llm_chain(user_input)["text"])
     # msg should really becalled ai_message
     msg = { 'role': 'assistant', 'content': ai_message.content }
@@ -36,6 +61,25 @@ def chatbot(user_input="", openai_api_key="", room_code="", user_name=""):
     st.session_state.messages.append(msg)
 
     store_message_history(database_name, room_code, st.session_state.messages, user_name)
+
+def upload_pdf(file):
+    client = MongoClient(uri)
+
+    # Replace <username>, <password>, and mongoDB connection URI with your connection string
+
+    db = client['hack-for-hackers']
+
+    # GridFS bucket object
+    fs = gridfs.GridFS(db)
+
+    # Open PDF file and read data
+    with open(file, 'rb') as pdf_file:
+        contents = pdf_file.read()
+
+    # Create a new file in GridFS
+    file_id = fs.put(contents, filename='test.pdf')
+
+    print("File ID: ", file_id)  # It will print the id of your newly uploaded file.
 
 # user page
 def user_page(room_code, user_name, openai_api_key="") : # why is openai api key here?
@@ -54,18 +98,13 @@ def user_page(room_code, user_name, openai_api_key="") : # why is openai api key
         if not openai_api_key:
             st.info("Please add your OpenAI API key to continue.")
             st.stop()
+        # this is the actual chat bot
         chatbot(user_input=user_input, openai_api_key=openai_api_key, room_code=room_code, user_name=user_name)
         
 def user_view_page(user_name, messages) :
     st.title(user_name)
     for msg in messages:
         st.chat_message(msg["role"]).write(msg["content"])
-
-import streamlit as st
-from streamlit_autorefresh import st_autorefresh
-import pymongo
-import certifi
-import random
 
 def admin_page(room_code, users):
     st_autorefresh(interval=5000, limit=100, key="userFinder")
@@ -78,9 +117,10 @@ def admin_page(room_code, users):
     # Create three columns using st.beta_columns()
     col1, col2, col3 = st.columns(3)
 
+    # Create a file uploader using streamlit components & run my function to upload the file
     uploaded_file = st.file_uploader('Choose your .pdf file', type="pdf")
     if uploaded_file is not None:
-        df = extract_data(uploaded_file)
+        upload_pdf(uploaded_file)
 
     if len(users) > 0:
         # Column 1: Names
@@ -204,7 +244,6 @@ def store_message_history(database_name, collection_code, message_history, user_
     collection.update_one(filter_query, update_query, upsert=True)
     client.close()
 
-company_name = "LLM-TA"
 def home_page():
     st.title('Welcome to ' + company_name + '!')
     # Add content specific to the Home page here
