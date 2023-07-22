@@ -18,17 +18,13 @@ def user_page(room_code, user_name, openai_api_key="") : # why is openai api key
             st.session_state["messages"] = [{"role": "assistant", "content": "Hello, how can I help you today?"}]
     store_message_history(database_name, room_code, st.session_state["messages"], user_name)
         
-    for msg in st.session_state.messages:
-        st.chat_message(msg["role"]).write(msg["content"])
+    # for msg in st.session_state.messages:
+        # st.chat_message(msg["role"]).write(msg["content"])
 
     if user_input := st.chat_input():
         if not openai_api_key:
             st.info("Please add your OpenAI API key to continue.")
             st.stop()
-
-        # default openai stuff that I will change
-        st.session_state.messages.append({"role": "user", "content": user_input})
-        st.chat_message("user").write(user_input)
 
         llm = OpenAI(openai_api_key=openai_api_key,temperature=0)
 
@@ -36,19 +32,20 @@ def user_page(room_code, user_name, openai_api_key="") : # why is openai api key
         You are a teaching assistant for a high school teacher's class. You are helping a student with a lesson. 
         The student asks you: {question}
         """
+
         llm_chain = LLMChain(
             llm=llm, 
             prompt=PromptTemplate.from_template(template)
-        )
+)
+        st.session_state.messages.append({"role": "user", "content": user_input})
+        st.chat_message("user").write(user_input)
 
         response = llm_chain(user_input)
-
-        # msg = response.choices[0].message
-        # store_message_history(database_name, room_code, st.session_state.messages, user_name)
-        st.chat_message("assistant").write(response)
-        print(type(response))
+        msg = response['text']
+        st.chat_message("assistant").write(msg)
+        st.session_state.messages.append(msg)
+        store_message_history(database_name, room_code, st.session_state.messages, user_name)
         
-# 
 def user_view_page(user_name, messages) :
     st.title(user_name)
     for msg in messages:
@@ -194,11 +191,12 @@ def store_message_history(database_name, collection_code, message_history, user_
     collection.update_one(filter_query, update_query, upsert=True)
     client.close()
 
-
+company_name = "LLM-TA"
 def home_page():
-    st.title('Welcome to the Home Page')
+    st.title('Welcome to ' + company_name + '!')
     # Add content specific to the Home page here
-    st.write("Large Language models like chat gpt are being used more and more by students all over the world. The intentions while accessing these amazing resources are not always innocent especially when used for school work. Why not provide our students with a safe, relevant, and non-malicious way to use these very powerful tools within the classroom ")
+    st.write("Students worldwide rely on large language models like ChatGPT for various purposes. However, their usage is not always innocent, particularly when employed for school work.")
+    st.write(company_name + " is revolutionizing learning through AI-driven Breakout Rooms. Engage students with curriculum PDFs and foster collaborative discussions in a educational, non-malicious, and secure environment.")
     st.write("####")
     st.write("What is your name?")
     if 'name' not in st.session_state:
