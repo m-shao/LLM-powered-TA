@@ -3,6 +3,7 @@ import os
 import openai
 import streamlit as st
 from langchain import PromptTemplate, OpenAI, LLMChain
+from langchain.schema import HumanMessage, AIMessage
 from langchain.memory import ConversationBufferWindowMemory
 from constants import characters, open_ai_key, uri, database_name
 
@@ -36,13 +37,19 @@ def user_page(room_code, user_name, openai_api_key="") : # why is openai api key
         llm_chain = LLMChain(
             llm=llm, 
             prompt=PromptTemplate.from_template(template)
-)
+        )
         st.session_state.messages.append({"role": "user", "content": user_input})
         st.chat_message("user").write(user_input)
 
-        response = llm_chain(user_input)
-        msg = response['text']
-        st.chat_message("assistant").write(response)
+        user_message = HumanMessage(content=user_input)
+        user_message_dict = {"role": "user", "content": user_message.content}
+        st.session_state.messages.append(user_message_dict)
+
+        ai_message = AIMessage(content=llm_chain(user_input)["text"])
+        # msg should really becalled ai_message
+        msg = { 'role': 'assistant', 'content': ai_message.content }
+        st.chat_message("assistant").write(msg["content"])
+
         st.session_state.messages.append(msg)
         store_message_history(database_name, room_code, st.session_state.messages, user_name)
         
