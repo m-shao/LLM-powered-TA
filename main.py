@@ -15,7 +15,7 @@ from langchain import PromptTemplate, OpenAI, LLMChain
 from langchain.schema import HumanMessage, AIMessage
 from constants import characters, open_ai_key, uri, database_name
 
-company_name = "LLM-TA"
+company_name = "Classroom Companion"
 lesson_title = "Indigenous Colonization"
 global file_path
 
