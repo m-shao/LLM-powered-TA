@@ -4,35 +4,31 @@ import streamlit as st
 from streamlit_autorefresh import st_autorefresh
 import certifi
 import random
-# for pdfs
 import pymongo
-import gridfs
-from bson import ObjectIds
+# for pdf
+from langchain.document_loaders import PyPDFLoader
+from langchain.embeddings import OpenAIEmbeddings
+from langchain.vectorstores import FAISS
 # for chatbot
 import openai
 from langchain import PromptTemplate, OpenAI, LLMChain
-from langchain.embeddings import OpenAIEmbeddings
 from pdfgpt import *
 from langchain.schema import HumanMessage, AIMessage
 from constants import characters, open_ai_key, uri, database_name
 
-# functions are for streamlit's ability to run multiple pages
+company_name = "LLM-TA"
+global file_path
 
-# def chat_pdf():
-#     const embeddings = new OpenAIEmbeddings();
+# functions are for streamlit's ability to run multiple pages    
 
-def semantic_search(document, query):
-    d = PDFBot(openai_key=openai_api_key)
+def semantic_search(path, query, openai_api_key=""):
+    loader = PyPDFLoader("example_data/layout-parser-paper.pdf")
+    pages = loader.load_and_split()
 
-    print('Example')
-    extracted_text, num_pages = d.generateText(file_path='.pdf')
-    df = d.generateEmbeddings(extracted_text)
-
-    print('USER: What is EPANET?')
-    prompt = d.generatePrompt(df, num_pages, 'What is EPANET?')
-    response = d.sendPrompt(prompt, model="gpt-3.5-turbo")
-    print('AI')
-    print(response, '\n')
+    faiss_index = FAISS.from_documents(pages, OpenAIEmbeddings())
+    docs = faiss_index.similarity_search("How will the community be engaged?", k=2)
+    for doc in docs:
+        print(str(doc.metadata["page"]) + ":", doc.page_content[:300])
 
 def chatbot(user_input="", openai_api_key="", room_code="", user_name=""):
     llm = OpenAI(openai_api_key=openai_api_key,temperature=0)
@@ -52,7 +48,7 @@ def chatbot(user_input="", openai_api_key="", room_code="", user_name=""):
     user_message_dict = {"role": "user", "content": user_message.content}
     st.session_state.messages.append(user_message_dict)
 
-    semantic_search("What is some relevant information in this text that is relevant to: " + user_input)
+    semantic_search(path=file_path, query="What is some relevant information in this text that is relevant to: " + user_input, openai_api_key=openai_api_key)
 
     ai_message = AIMessage(content=llm_chain(user_input)["text"])
     # msg should really becalled ai_message
@@ -63,23 +59,8 @@ def chatbot(user_input="", openai_api_key="", room_code="", user_name=""):
     store_message_history(database_name, room_code, st.session_state.messages, user_name)
 
 def upload_pdf(file):
-    client = MongoClient(uri)
-
-    # Replace <username>, <password>, and mongoDB connection URI with your connection string
-
-    db = client['hack-for-hackers']
-
-    # GridFS bucket object
-    fs = gridfs.GridFS(db)
-
-    # Open PDF file and read data
-    with open(file, 'rb') as pdf_file:
-        contents = pdf_file.read()
-
-    # Create a new file in GridFS
-    file_id = fs.put(contents, filename='test.pdf')
-
-    print("File ID: ", file_id)  # It will print the id of your newly uploaded file.
+    file_path = file.name
+    print(file_path)
 
 # user page
 def user_page(room_code, user_name, openai_api_key="") : # why is openai api key here?
