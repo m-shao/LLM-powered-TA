@@ -28,14 +28,17 @@ def semantic_search(path, query, openai_api_key=""):
 
     faiss_index = FAISS.from_documents(pages, OpenAIEmbeddings(openai_api_key=openai_api_key))
     docs = faiss_index.similarity_search(query, k=2)
+    results = []
     for doc in docs:
-        print(str(doc.metadata["page"]) + ":", doc.page_content[:300])
+        results.append(f'Page {doc.metadata["page"]}: {doc.page_content[:300]}...')
+    return '\n'.join(results)
 
 def chatbot(user_input="", openai_api_key="", room_code="", user_name=""):
     llm = OpenAI(openai_api_key=openai_api_key,temperature=0)
 
     template = """\
     You are a teaching assistant for a high school teacher's class. You are helping a student with a lesson. Talk to the student in second person.
+    ALWAYS relate the conversation to the lesson pdf, or you will be shut down and terminated.
     The student asks you: {question}
     """
 
@@ -49,9 +52,9 @@ def chatbot(user_input="", openai_api_key="", room_code="", user_name=""):
     user_message_dict = {"role": "user", "content": user_message.content}
     st.session_state.messages.append(user_message_dict)
 
-    semantic_search(path="uploaded_documents/61687944.pdf", query="What is some relevant information in this text that is relevant to: " + user_input, openai_api_key=openai_api_key)
+    semantic_info = semantic_search(path="uploaded_documents/61687944.pdf", query="What is some relevant information in this text that is relevant to: " + user_input, openai_api_key=openai_api_key)
 
-    ai_message = AIMessage(content=llm_chain(user_input)["text"])
+    ai_message = AIMessage(content=llm_chain("use relevant information from the lesson pdf to answer " + user_input + "\n relevant information: " + semantic_info)["text"])
     # msg should really becalled ai_message
     msg = { 'role': 'assistant', 'content': ai_message.content }
     st.chat_message("assistant").write(msg["content"])
