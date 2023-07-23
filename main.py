@@ -18,11 +18,12 @@ from langchain.schema import HumanMessage, AIMessage
 from constants import characters, open_ai_key, uri, database_name
 
 company_name = "LLM-TA"
+lesson_title = "Indigenous Colonization"
 global file_path
 
 # functions are for streamlit's ability to run multiple pages    
 
-def semantic_search(path, query, openai_api_key=""):
+def semantic_search(path, query, openai_api_key):
     loader = PyPDFLoader(path)
     pages = loader.load_and_split()
 
@@ -52,7 +53,7 @@ def chatbot(user_input="", openai_api_key="", room_code="", user_name=""):
     user_message_dict = {"role": "user", "content": user_message.content}
     st.session_state.messages.append(user_message_dict)
 
-    semantic_info = semantic_search(path="uploaded_documents/61687944.pdf", query="What is some relevant information in this text that is relevant to: " + user_input, openai_api_key=openai_api_key)
+    semantic_info = semantic_search(path="uploaded_documents/61687944.pdf", query="What is some relevant information in the " + lesson_title + " lesson text that is relevant to: " + user_input, openai_api_key=openai_api_key)
 
     ai_message = AIMessage(content=llm_chain("use relevant information from the lesson pdf to answer " + user_input + "\n relevant information: " + semantic_info)["text"])
     # msg should really becalled ai_message
@@ -81,9 +82,9 @@ def upload_pdf(file):
     print(f"File uploaded, id: {file_id}")
 
 # user page
-def user_page(room_code, user_name, openai_api_key="") : # why is openai api key here?
+def user_page(room_code, user_name, openai_api_key) : # why is openai api key here?
     st.title("💬 Chatbot")
-    st.text(lesson_title)
+    st.write("Your teacher's chosen topic is " + lesson_title)
     if "messages" not in st.session_state:
         try: 
             st.session_state["messages"] = fetch_user_messages(database_name, room_code, user_name)[0]["messages"]
@@ -118,7 +119,6 @@ def admin_page(room_code, users):
     col1, col2, col3 = st.columns(3)
 
     lesson_title = st.text_input("Main Focus of Lesson", key="lesson_title")
-
     # Create a file uploader using streamlit components & run my function to upload the file
     uploaded_file = st.file_uploader('Upload your lesson material as a .pdf file', type="pdf")
     if uploaded_file is not None:
@@ -243,6 +243,7 @@ def store_message_history(database_name, collection_code, message_history, user_
         "$set": {"messages": message_history},
         "$setOnInsert": {"user": user_name}  # Only set this field if it's a new document
     }
+
     collection.update_one(filter_query, update_query, upsert=True)
     client.close()
 
