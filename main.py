@@ -9,11 +9,9 @@ import pymongo
 from langchain.document_loaders import PyPDFLoader
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import FAISS
-import gridfs
 # for chatbot
 import openai
 from langchain import PromptTemplate, OpenAI, LLMChain
-from pdfgpt import *
 from langchain.schema import HumanMessage, AIMessage
 from constants import characters, open_ai_key, uri, database_name
 
@@ -72,24 +70,6 @@ def chatbot(user_input="", openai_api_key="", room_code="", user_name=""):
     st.session_state.messages.append(msg)
 
     store_message_history(database_name, room_code, st.session_state.messages, user_name)
-
-def upload_pdf(file):
-    file_path = file.name
-    print(file_path)
-
-    # Create connection to MongoDB
-    client = pymongo.MongoClient("mongodb://localhost:27017/")
-    db = client["hack-with-hackers"]
-    fs = gridfs.GridFS(db)
-
-    def save_to_db(file):
-        return fs.put(file, filename=file_path)
-
-    # Let's assume `bio` is your BytesIO object.
-    bio.seek(0)  # Make sure to seek to the start of your BytesIO buffer.
-    file_id = save_to_db(bio.read())
-
-    print(f"File uploaded, id: {file_id}")
 
 # user page
 def user_page(room_code, user_name, openai_api_key) : # why is openai api key here?
