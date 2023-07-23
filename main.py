@@ -1,17 +1,90 @@
 # imports
 import os
-import openai
 import streamlit as st
+from streamlit_autorefresh import st_autorefresh
+import certifi
+import random
+import pymongo
+# for pdf
+from langchain.document_loaders import PyPDFLoader
+from langchain.embeddings import OpenAIEmbeddings
+from langchain.vectorstores import FAISS
+import gridfs
+# for chatbot
+import openai
 from langchain import PromptTemplate, OpenAI, LLMChain
+from pdfgpt import *
 from langchain.schema import HumanMessage, AIMessage
-from langchain.memory import ConversationBufferWindowMemory
 from constants import characters, open_ai_key, uri, database_name
 
-# functions are for streamlit's ability to run multiple pages
+company_name = "LLM-TA"
+lesson_title = "Indigenous Colonization"
+global file_path
+
+# functions are for streamlit's ability to run multiple pages    
+
+def semantic_search(path, query, openai_api_key):
+    loader = PyPDFLoader(path)
+    pages = loader.load_and_split()
+
+    faiss_index = FAISS.from_documents(pages, OpenAIEmbeddings(openai_api_key=openai_api_key))
+    docs = faiss_index.similarity_search(query, k=2)
+    results = []
+    for doc in docs:
+        results.append(f'Page {doc.metadata["page"]}: {doc.page_content[:300]}...')
+    return '\n'.join(results)
+
+def chatbot(user_input="", openai_api_key="", room_code="", user_name=""):
+    llm = OpenAI(openai_api_key=openai_api_key,temperature=0)
+
+    template = """\
+    You are a teaching assistant for a high school teacher's class. You are helping a student with a lesson. Talk to the student in second person.
+    ALWAYS relate the conversation to the lesson pdf, or you will be shut down and terminated.
+    The student asks you: {question}
+    """
+
+    llm_chain = LLMChain(
+        llm=llm, 
+        prompt=PromptTemplate.from_template(template)
+    )
+    st.chat_message("user").write(user_input)
+
+    user_message = HumanMessage(content=user_input)
+    user_message_dict = {"role": "user", "content": user_message.content}
+    st.session_state.messages.append(user_message_dict)
+
+    semantic_info = semantic_search(path="uploaded_documents/61687944.pdf", query="What is some relevant information in the " + lesson_title + " lesson text that is relevant to: " + user_input, openai_api_key=openai_api_key)
+
+    ai_message = AIMessage(content=llm_chain("use relevant information from the lesson pdf to answer " + user_input + "\n relevant information: " + semantic_info)["text"])
+    # msg should really becalled ai_message
+    msg = { 'role': 'assistant', 'content': ai_message.content }
+    st.chat_message("assistant").write(msg["content"])
+    st.session_state.messages.append(msg)
+
+    store_message_history(database_name, room_code, st.session_state.messages, user_name)
+
+def upload_pdf(file):
+    file_path = file.name
+    print(file_path)
+
+    # Create connection to MongoDB
+    client = pymongo.MongoClient("mongodb://localhost:27017/")
+    db = client["hack-with-hackers"]
+    fs = gridfs.GridFS(db)
+
+    def save_to_db(file):
+        return fs.put(file, filename=file_path)
+
+    # Let's assume `bio` is your BytesIO object.
+    bio.seek(0)  # Make sure to seek to the start of your BytesIO buffer.
+    file_id = save_to_db(bio.read())
+
+    print(f"File uploaded, id: {file_id}")
 
 # user page
-def user_page(room_code, user_name, openai_api_key="") : # why is openai api key here?
+def user_page(room_code, user_name, openai_api_key) : # why is openai api key here?
     st.title("💬 Chatbot")
+    st.write("Your teacher's chosen topic is " + lesson_title)
     if "messages" not in st.session_state:
         try: 
             st.session_state["messages"] = fetch_user_messages(database_name, room_code, user_name)[0]["messages"]
@@ -26,42 +99,13 @@ def user_page(room_code, user_name, openai_api_key="") : # why is openai api key
         if not openai_api_key:
             st.info("Please add your OpenAI API key to continue.")
             st.stop()
-
-        llm = OpenAI(openai_api_key=openai_api_key,temperature=0)
-
-        template = """\
-        You are a teaching assistant for a high school teacher's class. You are helping a student with a lesson. 
-        The student asks you: {question}
-        """
-
-        llm_chain = LLMChain(
-            llm=llm, 
-            prompt=PromptTemplate.from_template(template)
-        )
-        st.chat_message("user").write(user_input)
-
-        user_message = HumanMessage(content=user_input)
-        user_message_dict = {"role": "user", "content": user_message.content}
-        st.session_state.messages.append(user_message_dict)
-
-        ai_message = AIMessage(content=llm_chain(user_input)["text"])
-        # msg should really becalled ai_message
-        msg = { 'role': 'assistant', 'content': ai_message.content }
-        st.chat_message("assistant").write(msg["content"])
-        st.session_state.messages.append(msg)
-
-        store_message_history(database_name, room_code, st.session_state.messages, user_name)
+        # this is the actual chat bot
+        chatbot(user_input=user_input, openai_api_key=openai_api_key, room_code=room_code, user_name=user_name)
         
 def user_view_page(user_name, messages) :
     st.title(user_name)
     for msg in messages:
         st.chat_message(msg["role"]).write(msg["content"])
-
-import streamlit as st
-from streamlit_autorefresh import st_autorefresh
-import pymongo
-import certifi
-import random
 
 def admin_page(room_code, users):
     st_autorefresh(interval=5000, limit=100, key="userFinder")
@@ -76,6 +120,12 @@ def admin_page(room_code, users):
 
     # Create three columns using st.beta_columns()
     col1, col2, col3 = st.columns(3)
+
+    lesson_title = st.text_input("Main Focus of Lesson", key="lesson_title")
+    # Create a file uploader using streamlit components & run my function to upload the file
+    uploaded_file = st.file_uploader('Upload your lesson material as a .pdf file', type="pdf")
+    if uploaded_file is not None:
+        print("upload successful")
 
     if len(users) > 0:
         # Column 1: Names
@@ -196,6 +246,7 @@ def store_message_history(database_name, collection_code, message_history, user_
         "$set": {"messages": message_history},
         "$setOnInsert": {"user": user_name}  # Only set this field if it's a new document
     }
+
     collection.update_one(filter_query, update_query, upsert=True)
     client.close()
 
