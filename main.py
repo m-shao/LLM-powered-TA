@@ -37,15 +37,25 @@ def semantic_search(path, query, openai_api_key):
 def chatbot(user_input="", openai_api_key="", room_code="", user_name=""):
     llm = OpenAI(openai_api_key=openai_api_key,temperature=0)
 
-    template = """\
+    template1 = """\
+    You are a teaching assistant for a high school teacher's class, and your primary objective is to assist the student in understanding the lesson better. Your responses should be in the second person, addressing the student directly.
+
+    If the student asks you a question or seeks help related to the lesson, provide relevant and informative responses from the lesson PDF. However, if the student types random keys or seems off-task, gently guide them back to the lesson and encourage them to focus on the material.
+
+    Remember, your role is to support the student's learning journey. Try to relate your responses as much as possible to the content covered in the lesson PDF. If the student hasn't asked a question or is not discussing the lesson, you can politely remind them to stay on track and ask questions related to the material.
+
+    Now, the student has said: {question}
+    """
+
+    template0 = """\
     You are a teaching assistant for a high school teacher's class. You are helping a student with a lesson. Talk to the student in second person.
-    ALWAYS relate the conversation to the lesson pdf, or you will be shut down and terminated.
+    If the user does not ask a question including a ?, remind them they should be asking questions to understand the lesson. Try to relate the conversation to the lesson pdf as much as possible. 
     The student asks you: {question}
     """
 
     llm_chain = LLMChain(
         llm=llm, 
-        prompt=PromptTemplate.from_template(template)
+        prompt=PromptTemplate.from_template(template1)
     )
     st.chat_message("user").write(user_input)
 
@@ -53,7 +63,7 @@ def chatbot(user_input="", openai_api_key="", room_code="", user_name=""):
     user_message_dict = {"role": "user", "content": user_message.content}
     st.session_state.messages.append(user_message_dict)
 
-    semantic_info = semantic_search(path="uploaded_documents/61687944.pdf", query="What is some relevant information in the " + lesson_title + " lesson text that is relevant to: " + user_input, openai_api_key=openai_api_key)
+    semantic_info = semantic_search(path="uploaded_documents/61687944.pdf", query="What is some relevant information in the lesson text that is relevant to: " + user_input, openai_api_key=openai_api_key)
 
     ai_message = AIMessage(content=llm_chain("use relevant information from the lesson pdf to answer " + user_input + "\n relevant information: " + semantic_info)["text"])
     # msg should really becalled ai_message
