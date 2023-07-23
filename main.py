@@ -307,7 +307,7 @@ def main1(user_name):
         # Fetch documents from the collection with the "user" property
         users = list(collection.find(query_filter))
         client.close()
-        st.session_state['page'] = admin_page(st.session_state['key'], users)
+        admin_page(st.session_state['key'], users)
     elif st.session_state['page'] == "home":
         home_page()
 

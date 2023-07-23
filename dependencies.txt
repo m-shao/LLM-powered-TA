@@ -4,4 +4,7 @@ python -m pip install pymongo==3.11
 pip install streamlit
 pip install certifi
 pip install streamlit-autorefresh
-pip install pymongo
+pip install faiss-cpu
+pip install tiktoken
+pip install pypdf
+pip3 install pymongo[srv]
