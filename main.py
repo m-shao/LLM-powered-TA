@@ -9,6 +9,7 @@ import pymongo
 from langchain.document_loaders import PyPDFLoader
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import FAISS
+import gridfs
 # for chatbot
 import openai
 from langchain import PromptTemplate, OpenAI, LLMChain
@@ -22,11 +23,11 @@ global file_path
 # functions are for streamlit's ability to run multiple pages    
 
 def semantic_search(path, query, openai_api_key=""):
-    loader = PyPDFLoader("example_data/layout-parser-paper.pdf")
+    loader = PyPDFLoader(path)
     pages = loader.load_and_split()
 
-    faiss_index = FAISS.from_documents(pages, OpenAIEmbeddings())
-    docs = faiss_index.similarity_search("How will the community be engaged?", k=2)
+    faiss_index = FAISS.from_documents(pages, OpenAIEmbeddings(openai_api_key=openai_api_key))
+    docs = faiss_index.similarity_search(query, k=2)
     for doc in docs:
         print(str(doc.metadata["page"]) + ":", doc.page_content[:300])
 
@@ -48,7 +49,7 @@ def chatbot(user_input="", openai_api_key="", room_code="", user_name=""):
     user_message_dict = {"role": "user", "content": user_message.content}
     st.session_state.messages.append(user_message_dict)
 
-    semantic_search(path=file_path, query="What is some relevant information in this text that is relevant to: " + user_input, openai_api_key=openai_api_key)
+    semantic_search(path="uploaded_documents/61687944.pdf", query="What is some relevant information in this text that is relevant to: " + user_input, openai_api_key=openai_api_key)
 
     ai_message = AIMessage(content=llm_chain(user_input)["text"])
     # msg should really becalled ai_message
@@ -61,6 +62,20 @@ def chatbot(user_input="", openai_api_key="", room_code="", user_name=""):
 def upload_pdf(file):
     file_path = file.name
     print(file_path)
+
+    # Create connection to MongoDB
+    client = pymongo.MongoClient("mongodb://localhost:27017/")
+    db = client["hack-with-hackers"]
+    fs = gridfs.GridFS(db)
+
+    def save_to_db(file):
+        return fs.put(file, filename=file_path)
+
+    # Let's assume `bio` is your BytesIO object.
+    bio.seek(0)  # Make sure to seek to the start of your BytesIO buffer.
+    file_id = save_to_db(bio.read())
+
+    print(f"File uploaded, id: {file_id}")
 
 # user page
 def user_page(room_code, user_name, openai_api_key="") : # why is openai api key here?
@@ -101,7 +116,7 @@ def admin_page(room_code, users):
     # Create a file uploader using streamlit components & run my function to upload the file
     uploaded_file = st.file_uploader('Choose your .pdf file', type="pdf")
     if uploaded_file is not None:
-        upload_pdf(uploaded_file)
+        print("upload successful")
 
     if len(users) > 0:
         # Column 1: Names
