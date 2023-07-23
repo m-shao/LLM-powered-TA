@@ -4,3 +4,4 @@ python -m pip install pymongo==3.11
 pip install streamlit
 pip install certifi
 pip install streamlit-autorefresh
+pip install pymongo
