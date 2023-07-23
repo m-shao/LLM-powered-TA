@@ -83,6 +83,7 @@ def upload_pdf(file):
 # user page
 def user_page(room_code, user_name, openai_api_key="") : # why is openai api key here?
     st.title("💬 Chatbot")
+    st.text(lesson_title)
     if "messages" not in st.session_state:
         try: 
             st.session_state["messages"] = fetch_user_messages(database_name, room_code, user_name)[0]["messages"]
@@ -116,8 +117,10 @@ def admin_page(room_code, users):
     # Create three columns using st.beta_columns()
     col1, col2, col3 = st.columns(3)
 
+    lesson_title = st.text_input("Main Focus of Lesson", key="lesson_title")
+
     # Create a file uploader using streamlit components & run my function to upload the file
-    uploaded_file = st.file_uploader('Choose your .pdf file', type="pdf")
+    uploaded_file = st.file_uploader('Upload your lesson material as a .pdf file', type="pdf")
     if uploaded_file is not None:
         print("upload successful")
 
