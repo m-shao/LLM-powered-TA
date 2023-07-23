@@ -1,0 +1,10 @@
+langchain
+openai
+pymongo==3.11
+streamlit
+certifi
+streamlit-autorefresh
+faiss-cpu
+tiktoken
+pypdf
+pymongo[srv]
